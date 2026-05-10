@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 // Import packages
 const express = require("express");
 const db = require("./config/db");
@@ -84,6 +86,166 @@ app.post("/booking", async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Failed to create booking"
+        });
+    }
+});
+// ================= DELETE BOOKING BY ID =================
+
+// Delete booking by ID
+app.delete("/booking/:id", async (req, res) => {
+    try {
+        // Extract and validate booking ID from route params
+        const { id } = req.params;
+        const bookingId = parseInt(id, 10);
+
+        // Check if bookingId is a valid positive integer
+        if (isNaN(bookingId) || bookingId <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid booking ID"
+            });
+        }
+
+        // Attempt to delete the booking from the database
+        const [result] = await db.query(
+            "DELETE FROM bookings WHERE id = ?",
+            [bookingId]
+        );
+
+        // Check if a booking was deleted
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Booking not found"
+            });
+        }
+
+        // Respond with success message
+        return res.json({
+            success: true,
+            message: "Booking deleted successfully"
+        });
+
+    } catch (err) {
+        console.error("Delete booking error ❌", err);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to delete booking"
+        });
+    }
+});
+
+
+
+// ================= UPDATE BOOKING =================
+
+app.put("/booking/:id", async (req, res) => {
+    try {
+
+        // Extract booking ID
+        const { id } = req.params;
+        const bookingId = parseInt(id, 10);
+
+        // Validate booking ID
+        if (isNaN(bookingId) || bookingId <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid booking ID"
+            });
+        }
+
+        // Extract request body
+        const { name, booking_date, status } = req.body;
+
+        // Validate status
+        const validStatus = ["pending", "confirmed", "cancelled"];
+
+        if (status !== undefined && !validStatus.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid status value"
+            });
+        }
+
+        // Validate name
+        if (name !== undefined && name.trim() === "") {
+            return res.status(400).json({
+                success: false,
+                message: "Name cannot be empty"
+            });
+        }
+
+        // Allowed fields
+        const allowedFields = ["name", "booking_date", "status"];
+
+        // Build updates object dynamically
+        const updates = {};
+
+        for (let key of allowedFields) {
+
+            if (req.body[key] !== undefined) {
+
+                // Clean spaces for name
+                if (key === "name") {
+                    updates[key] = req.body[key].trim();
+                } else {
+                    updates[key] = req.body[key];
+                }
+
+            }
+        }
+
+        // Ensure at least one field exists
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No fields provided for update"
+            });
+        }
+
+        // Build dynamic SET clause
+        const setClause = Object.keys(updates)
+            .map(field => `${field} = ?`)
+            .join(", ");
+
+        // Extract values
+        const values = Object.values(updates);
+
+        // Execute update query
+        const [result] = await db.query(
+            `UPDATE bookings SET ${setClause} WHERE id = ?`,
+            [...values, bookingId]
+        );
+
+        // Check if booking exists
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Booking not found"
+            });
+        }
+
+        // Fetch updated booking
+        const [rows] = await db.query(
+            "SELECT * FROM bookings WHERE id = ?",
+            [bookingId]
+        );
+
+        // Success response
+        return res.status(200).json({
+            success: true,
+            message: "Booking updated successfully",
+            data: rows[0]
+        });
+
+    } catch (err) {
+
+        console.error("Update booking error ❌", err);
+
+        return res.status(500).json({
+            success: false,
+            message: "Could not update booking"
         });
     }
 });

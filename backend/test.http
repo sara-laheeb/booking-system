@@ -1,0 +1,6 @@
+### GET all bookings
+GET http://localhost:3000/bookings
+
+
+### DELETE booking
+DELETE http://localhost:3000/booking/2
